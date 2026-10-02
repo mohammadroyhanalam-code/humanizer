@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Humanizer — Make AI Text Sound Human (Free)</title>
+<meta name="description" content="Free AI humanizer — paste AI text, get a natural human rewrite. No signup, works offline." />
+<!-- ADS: paste your AdSense script below when approved -->
+<!-- <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXX"></script> -->
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --border:#262b36; --text:#e8eaf0; --muted:#9aa3b2; --accent:#6ea8fe; --green:#3ddc84; --yellow:#ffcf5c; --red:#ff6b6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:28px 20px 10px; max-width:1100px; margin:0 auto; }
+  header h1 { margin:0 0 6px; font-size:28px; letter-spacing:-.02em; }
+  header p { margin:0; color:var(--muted); }
+  main { max-width:1100px; margin:0 auto; padding:16px 20px 40px; display:grid; grid-template-columns:1fr; gap:16px; }
+  @media(min-width:900px){ main.grid { grid-template-columns:1fr 1fr; } }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; }
+  .card h2 { margin:0 0 10px; font-size:14px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+  textarea { width:100%; min-height:260px; resize:vertical; background:#0c0e12; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:12px; font-size:15px; line-height:1.6; }
+  #output { white-space:pre-wrap; min-height:260px; background:#0c0e12; border:1px solid var(--border); border-radius:10px; padding:12px; font-size:15px; line-height:1.65; }
+  .controls { display:flex; flex-wrap:wrap; gap:12px; align-items:end; }
+  .field { display:flex; flex-direction:column; gap:6px; }
+  label { font-size:12px; color:var(--muted); }
+  select, input[type=range] { background:#0c0e12; color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px 10px; }
+  .btnrow { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+  button { cursor:pointer; border:1px solid var(--border); border-radius:10px; padding:10px 16px; font-weight:600; background:#232839; color:var(--text); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#0a1020; }
+  button.ghost { background:transparent; }
+  button:disabled { opacity:.5; cursor:default; }
+  .stats { display:flex; gap:12px; flex-wrap:wrap; margin-top:12px; }
+  .stat { flex:1; min-width:140px; background:#0c0e12; border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+  .stat b { display:block; font-size:20px; }
+  .stat span { font-size:12px; color:var(--muted); }
+  .bar { height:8px; background:#0c0e12; border:1px solid var(--border); border-radius:99px; overflow:hidden; margin-top:10px; }
+  .bar > div { height:100%; width:0%; background:var(--green); transition:width .4s; }
+  .diff-add { background:rgba(61,220,132,.15); }
+  footer { max-width:1100px; margin:0 auto; padding:0 20px 30px; color:var(--muted); font-size:13px; }
+  kbd { background:#0c0e12; border:1px solid var(--border); border-radius:6px; padding:1px 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Humanizer</h1>
+  <p>Paste AI-sounding text, get a more natural rewrite. 100% local — no API, no uploads.</p>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Controls</h2>
+    <div class="controls">
+      <div class="field">
+        <label for="mode">Style</label>
+        <select id="mode">
+          <option value="balanced" selected>Balanced (Recommended)</option>
+          <option value="casual">Casual</option>
+          <option value="formal">Formal but natural</option>
+          <option value="concise">Concise</option>
+          <option value="creative">Creative / varied</option>
+        </select>
+      </div>
+      <div class="field" style="flex:1;min-width:180px">
+        <label for="intensity">Humanize intensity: <span id="intensityVal">60%</span></label>
+        <input type="range" id="intensity" min="10" max="100" value="60" />
+      </div>
+      <div class="field">
+        <label><input type="checkbox" id="contractions" checked /> Use contractions</label>
+        <label><input type="checkbox" id="burstiness" checked /> Vary rhythm</label>
+        <label><input type="checkbox" id="removeCliche" checked /> Strip AI clichés</label>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button class="primary" id="go">Humanize →</button>
+      <button class="ghost" id="sample">Load sample</button>
+      <button class="ghost" id="clear">Clear</button>
+    </div>
+    <div class="bar"><div id="scoreBar"></div></div>
+    <div class="stats">
+      <div class="stat"><b id="aiScore">—</b><span>AI-likelihood (input)</span></div>
+      <div class="stat"><b id="aiScoreOut">—</b><span>AI-likelihood (output)</span></div>
+      <div class="stat"><b id="words">0</b><span>words out / <span id="wordsIn">0</span> in</span></div>
+      <div class="stat"><b id="reading">—</b><span>output reading</span></div>
+    </div>
+  </div>
+
+  <div class="grid" style="display:contents">
+    <div class="card">
+      <h2>Input — AI text</h2>
+      <textarea id="input" placeholder="Paste your ChatGPT / Claude / Gemini text here..."></textarea>
+    </div>
+    <div class="card">
+      <h2>Output — humanized <span id="changed" style="text-transform:none"></span></h2>
+      <div id="output">Your rewrite will appear here.</div>
+      <div class="btnrow">
+        <button id="copy">Copy output</button>
+        <button class="ghost" id="regen">↻ Re-roll variation</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>What it changes</h2>
+    <div id="log" style="color:var(--muted);font-size:14px;line-height:1.6">No run yet.</div>
+  </div>
+</main>
+
+<footer>
+  Tip: press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to humanize. This is a heuristic rewriter — for best results keep meaning-critical terms (names, numbers) and proofread. It does not guarantee bypassing AI detectors, and shouldn't be used for academic dishonesty.
+</footer>
+
+<script>
+// ---------- dictionaries ----------
+const AI_CLICHES = [
+  [/^moreover,?\s+/i,''], [/^furthermore,?\s+/i,''], [/^additionally,?\s+/i,''],
+  [/\bit is important to note that\s+/gi,''],
+  [/\bit's important to note that\s+/gi,''],
+  [/\bin conclusion,?\s+/gi,'To wrap up, '],
+  [/\bin summary,?\s+/gi,'In short, '],
+  [/\bdelve\b/gi,'dig'],
+  [/\btapestry\b/gi,'mix'],
+  [/\bleverage\b/gi,'use'],
+  [/\butilize\b/gi,'use'],
+  [/\bshowcase\b/gi,'show'],
+  [/\belevate\b/gi,'improve'],
+  [/\bembark\b/gi,'start'],
+  [/\bfoster\b/gi,'build'],
+  [/\bholistic\b/gi,'complete'],
+  [/\bpivotal\b/gi,'key'],
+  [/\bseamless(?:ly)?\b/gi,'smooth'],
+  [/\brobust\b/gi,'solid'],
+  [/\bgame-changer\b/gi,'big shift'],
+  [/\bcutting-edge\b/gi,'modern'],
+  [/\btestament to\b/gi,'sign of'],
+  [/\bvibrant\b/gi,'lively'],
+  [/\bbustling\b/gi,'busy'],
+  [/\bmeticulously\b/gi,'carefully'],
+  [/\bboasts\b/gi,'has'],
+  [/\b myriad\b/gi,' many'],
+  [/\bplethora\b/gi,'lot'],
+  [/\bnavigate(?:s|d)? (the )?landscape\b/gi,'handle $1situation'],
+  [/\bin today's fast-paced world,?\s*/gi,''],
+  [/\bin the realm of\s+/gi,'in '],
+  [/\bunlock(?:ing)? the power of\s+/gi,'use '],
+  [/\bharness(?:ing)?\b/gi,'use'],
+  [/\bas an ai language model,?\s*/gi,''],
+];
+
+const EXPAND_TO_CONTRACT = [
+  [/\bit is\b/g,'it’s'], [/\bthat is\b/g,'that’s'], [/\bthere is\b/g,'there’s'],
+  [/\bdo not\b/gi,'don’t'], [/\bdoes not\b/gi,'doesn’t'], [/\bdid not\b/gi,'didn’t'],
+  [/\bcannot\b/gi,'can’t'], [/\bcould not\b/gi,'couldn’t'], [/\bshould not\b/gi,'shouldn’t'],
+  [/\bwould not\b/gi,'wouldn’t'], [/\bwill not\b/gi,'won’t'], [/\bhave not\b/gi,'haven’t'],
+  [/\bhas not\b/gi,'hasn’t'], [/\bhad not\b/gi,'hadn’t'], [/\bwas not\b/gi,'wasn’t'],
+  [/\bwere not\b/gi,'weren’t'], [/\bis not\b/g,'isn’t'], [/\bare not\b/g,'aren’t'],
+  [/\bI am\b/g,'I’m'], [/\byou are\b/g,'you’re'], [/\bwe are\b/g,'we’re'],
+  [/\bthey are\b/g,'they’re'], [/\bI have\b/g,'I’ve'], [/\byou have\b/g,'you’ve'],
+  [/\bwe have\b/g,'we’ve'], [/\bit will\b/g,'it’ll'], [/\byou will\b/g,'you’ll'],
+  [/\bthat will\b/g,'that’ll'], [/\blet us\b/gi,'let’s'], [/\bof the\b/g,'of the'],
+];
+
+const SYNONYMS = {
+  'very':'really', 'extremely':'really', 'numerous':'many', 'individuals':'people',
+  'obtain':'get', 'assist':'help', 'commence':'start', 'demonstrate':'show',
+  'furthermore':'also', 'moreover':'also', 'however':'but', 'therefore':'so',
+  'thus':'so', 'consequently':'as a result', 'approximately':'about',
+  'additional':'extra', 'ensure':'make sure', 'require':'need', 'purchase':'buy',
+  'attempt':'try', 'sufficient':'enough', 'frequently':'often', 'rarely':'seldom',
+  'immediately':'right away', 'prior to':'before', 'due to':'because of',
+  'in order to':'to', 'despite the fact that':'even though', 'a large number of':'many',
+  'utilization':'use', 'facilitate':'help', 'implement':'roll out', 'comprehensive':'thorough',
+  'innovative':'fresh', 'efficient':'fast', 'effectively':'well', 'significantly':'a lot',
+  'various':'different', 'crucial':'important', 'essential':'key', 'beneficial':'helpful'
+};
+
+const OPENERS_CASUAL = ['Honestly, ','Honestly ','Actually, ','Look, ','Basically, ','In practice, '];
+const OPENERS_FORMAL = ['In practice, ','Overall, ','On balance, '];
+const FILLER_MID = [', honestly,',', in my experience,',', frankly,',', realistically,'];
+
+function splitSentences(text){
+  return (text.replace(/\s+/g,' ').trim().match(/[^.!?]+[.!?]+["”']?|\S[^.!?]*$/g) || []).map(s=>s.trim()).filter(Boolean);
+}
+function rand(a){ return a[Math.floor(Math.random()*a.length)]; }
+function maybe(p){ return Math.random() < p; }
+
+function aiScore(text){
+  if(!text.trim()) return null;
+  const lower = text.toLowerCase();
+  const sentences = splitSentences(text);
+  let pts = 0;
+  const clicheHits = ['delve','tapestry','leverage','moreover','furthermore','in conclusion','it is important to note','as an ai','cutting-edge','game-changer','seamless','robust','holistic','pivotal','moreover'].filter(w=>lower.includes(w)).length;
+  pts += Math.min(40, clicheHits*9);
+  // sentence uniformity: low variance => robotic
+  if(sentences.length>1){
+    const lens = sentences.map(s=>s.split(/\s+/).length);
+    const mean = lens.reduce((a,b)=>a+b,0)/lens.length;
+    const variance = lens.reduce((a,b)=>a+Math.pow(b-mean,2),0)/lens.length;
+    const sd = Math.sqrt(variance);
+    if(sd < 4) pts += 18; else if(sd < 7) pts += 8;
+    if(mean > 22) pts += 12; else if(mean > 18) pts += 6;
+  }
+  // formal / passive signals
+  const formal = (lower.match(/\b(utilize|furthermore|moreover|therefore|thus|consequently|moreover|additionally|comprehensive|innovative|efficient)\b/g)||[]).length;
+  pts += Math.min(20, formal*4);
+  const passive = (lower.match(/\b(is|are|was|were|been|be) (being )?\w+ed\b/g)||[]).length;
+  pts += Math.min(12, passive*3);
+  // no contractions => more AI-ish
+  const words = lower.split(/\s+/).length;
+  const contractions = (lower.match(/[a-z]+’[a-z]+|[a-z]+'[a-z]+/g)||[]).length;
+  if(words>30 && contractions/words < 0.01) pts += 10;
+  return Math.max(2, Math.min(98, Math.round(pts)));
+}
+
+function humanizeSentence(s, opts, idx){
+  let orig = s, logs = [];
+  let out = s;
+
+  if(opts.removeCliche){
+    for(const [re, rep] of AI_CLICHES){
+      const before = out;
+      out = out.replace(re, rep);
+      if(before!==out) logs.push('cliché → “'+rep.trim()+'”');
+    }
+  }
+  // synonyms
+  const p = opts.intensity/140; // 0.07..0.71
+  for(const [k,v] of Object.entries(SYNONYMS)){
+    const re = new RegExp('\\b'+k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\b','gi');
+    if(re.test(out) && maybe(p)){
+      out = out.replace(re, (m)=> /^[A-Z]/.test(m) ? v[0].toUpperCase()+v.slice(1) : v);
+      logs.push('“'+k+'” → “'+v+'”');
+      if(logs.length>4) break;
+    }
+  }
+  if(opts.contractions){
+    for(const [re,rep] of EXPAND_TO_CONTRACT){
+      if(maybe(0.85)) out = out.replace(re, rep);
+    }
+  }
+  if(opts.mode==='concise'){
+    out = out.replace(/\bin order to\b/gi,'to').replace(/\bdue to the fact that\b/gi,'because').replace(/\s{2,}/g,' ');
+  }
+  if(opts.mode==='casual'){
+    // occasional opener on 2nd+ sentence
+    if(idx>0 && maybe(opts.intensity/320) && !/^(honestly|actually|look|basically|so|and|but)/i.test(out)){
+      out = rand(OPENERS_CASUAL)+out[0].toLowerCase()+out.slice(1);
+      logs.push('casual opener');
+    }
+    if(maybe(opts.intensity/500) && out.length>60){
+      const pos = Math.floor(out.length/2);
+      const comma = out.indexOf(',', pos-20);
+      if(comma>-1){ out = out.slice(0,comma)+rand(FILLER_MID)+out.slice(comma+1); logs.push('natural filler'); }
+    }
+  }
+  if(opts.mode==='creative' && maybe(opts.intensity/300)){
+    // flip order: "X because Y" -> "Because Y, X(lower)"
+    const m = out.match(/^(.+?),\s*(because|since|as)\s+(.+)$/i);
+    if(m){ out = m[2][0].toUpperCase()+m[2].slice(1)+' '+m[3].replace(/\.$/,'')+', '+m[1][0].toLowerCase()+m[1].slice(1); logs.push('reordered clause'); }
+  }
+  // burstiness: split very long sentences
+  if(opts.burstiness && out.split(/\s+/).length > 26 && maybe(0.4 + opts.intensity/250)){
+    const split = out.replace(/,\s*(and|but|so|yet|while|whereas)\s+/i, '. '+ (opts.mode==='casual'?'':'') + '$1 '.replace(/^\. (\w)/,(m,c)=>'. '+c.toUpperCase()));
+    // simpler: split at first ", and/but/so"
+    const m2 = out.match(/^(.{40,}?),\s+(and|but|so)\s+(.+)$/);
+    if(m2){
+      let a=m2[1].trim(); if(!/[.!?]$/.test(a)) a+='.';
+      let b=(m2[2][0].toUpperCase()+m2[2].slice(1)+' '+m2[3]).trim();
+      out = a+' '+b;
+      logs.push('split long sentence');
+    }
+  }
+  // burstiness: occasionally join two short sentences (handled at paragraph level instead)
+  // trim double spaces, fix caps after split
+  out = out.replace(/\s{2,}/g,' ').replace(/\. ([a-z])/g,(m,c)=>'. '+c.toUpperCase());
+  out = out.charAt(0).toUpperCase()+out.slice(1);
+  return {out, changed: out!==orig, logs};
+}
+
+function humanize(text, opts){
+  const sentences = splitSentences(text);
+  const outSent = sentences.map((s,i)=>humanizeSentence(s,opts,i));
+  let joined = outSent.map(o=>o.out).join(' ');
+  // paragraph-level: drop consecutive identical openers, ensure variety
+  if(opts.burstiness && outSent.length>=3 && maybe(0.5)){
+    // merge two very short sentences
+    joined = joined.replace(/([.!?]) ([A-Z][^.!?]{1,40}[.!?]) ([A-Z])/g, (m,p1,mid,next)=>{
+      if(mid.split(/\s+/).length<8 && maybe(0.3)) return p1.slice(0,1)+' '+mid[0].toLowerCase()+mid.slice(1)+' '+next.toLowerCase();
+      return m;
+    });
+  }
+  // formal mode: remove casual openers that slipped
+  if(opts.mode==='formal'){
+    joined = joined.replace(/^(Honestly, |Look, |Basically, )/,'');
+  }
+  const allLogs = [...new Set(outSent.flatMap(o=>o.logs))];
+  const changedCount = outSent.filter(o=>o.changed).length;
+  return {text: joined, logs: allLogs, changedCount, total: outSent.length};
+}
+
+const $ = id=>document.getElementById(id);
+function run(){
+  const input = $('input').value;
+  if(!input.trim()){ $('output').textContent='Paste some text first.'; return; }
+  const opts = {
+    mode: $('mode').value,
+    intensity: +$('intensity').value,
+    contractions: $('contractions').checked,
+    burstiness: $('burstiness').checked,
+    removeCliche: $('removeCliche').checked,
+  };
+  const r = humanize(input, opts);
+  $('output').textContent = r.text;
+  const sIn = aiScore(input), sOut = aiScore(r.text);
+  $('aiScore').textContent = sIn==null?'—':sIn+'% AI';
+  $('aiScoreOut').textContent = sOut==null?'—':sOut+'% AI';
+  $('scoreBar').style.width = (100-(sOut??50))+'%';
+  $('scoreBar').style.background = (sOut??50) > 60 ? 'var(--red)' : (sOut??50) > 35 ? 'var(--yellow)' : 'var(--green)';
+  $('words').textContent = r.text.split(/\s+/).filter(Boolean).length;
+  $('wordsIn').textContent = input.split(/\s+/).filter(Boolean).length;
+  $('reading').textContent = r.changedCount+'/'+r.total+' sentences rewritten';
+  $('changed').textContent = r.changedCount ? '('+r.changedCount+' changed)' : '';
+  $('log').innerHTML = r.logs.length ? 'Applied: '+r.logs.map(l=>'• '+l).join('<br>') : 'Only light cleanup was needed — input already reads fairly human.';
+}
+$('go').onclick = run;
+$('regen').onclick = run;
+$('intensity').oninput = e=>$('intensityVal').textContent=e.target.value+'%';
+$('clear').onclick = ()=>{ $('input').value=''; $('output').textContent='Your rewrite will appear here.'; };
+$('sample').onclick = ()=>{ $('input').value = "In today's fast-paced world, it is important to note that leveraging cutting-edge technology is pivotal for success. Moreover, organizations must utilize robust and seamless solutions to foster innovation. Furthermore, it is essential to delve into comprehensive strategies in order to elevate performance. In conclusion, this approach is a game-changer that showcases a holistic tapestry of efficient practices."; run(); };
+$('copy').onclick = async ()=>{
+  const t = $('output').textContent;
+  try{ await navigator.clipboard.writeText(t); $('copy').textContent='Copied!'; setTimeout(()=>$('copy').textContent='Copy output',1200);}catch{ $('copy').textContent='Select + Ctrl+C'; }
+};
+document.addEventListener('keydown', e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter') run(); });
+</script>
+</body>
+</html>

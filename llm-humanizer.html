@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Humanizer AI — LLM Powered</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --border:#262b36; --text:#e8eaf0; --muted:#9aa3b2; --accent:#6ea8fe; --green:#3ddc84; --yellow:#ffcf5c; --red:#ff6b6b; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:28px 20px 10px; max-width:1100px; margin:0 auto; }
+  header h1 { margin:0 0 6px; font-size:28px; }
+  header p { margin:0; color:var(--muted); }
+  header a { color:var(--accent); }
+  main { max-width:1100px; margin:0 auto; padding:16px 20px 40px; display:grid; gap:16px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; }
+  .card h2 { margin:0 0 10px; font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+  textarea, input[type=text], input[type=password], select { width:100%; background:#0c0e12; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:14px; }
+  textarea { min-height:220px; resize:vertical; line-height:1.6; }
+  #output { white-space:pre-wrap; min-height:220px; background:#0c0e12; border:1px solid var(--border); border-radius:10px; padding:12px; line-height:1.65; }
+  .grid2 { display:grid; gap:12px; grid-template-columns:1fr; }
+  @media(min-width:800px){ .grid2 { grid-template-columns:1fr 1fr; } }
+  .grid3 { display:grid; gap:12px; grid-template-columns:1fr; }
+  @media(min-width:800px){ .grid3 { grid-template-columns:1fr 1fr 1fr; } }
+  label { font-size:12px; color:var(--muted); display:block; margin-bottom:6px; }
+  .btnrow { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+  button { cursor:pointer; border:1px solid var(--border); border-radius:10px; padding:10px 16px; font-weight:700; background:#232839; color:var(--text); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#0a1020; }
+  button.ghost { background:transparent; }
+  button:disabled { opacity:.5; }
+  .hint { font-size:13px; color:var(--muted); line-height:1.5; }
+  .status { font-size:13px; margin-top:8px; min-height:20px; color:var(--muted); }
+  .status.err { color:var(--red); } .status.ok { color:var(--green); }
+  kbd { background:#0c0e12; border:1px solid var(--border); border-radius:6px; padding:1px 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Humanizer AI — LLM Powered</h1>
+  <p>Higher quality rewrites using your own model key. Keys stay in your browser only. <a href="index.html">← back to offline version</a></p>
+</header>
+<main>
+  <div class="card">
+    <h2>1 — Model setup (OpenAI-compatible)</h2>
+    <div class="grid3">
+      <div>
+        <label for="preset">Preset</label>
+        <select id="preset">
+          <option value="openai">OpenAI</option>
+          <option value="openrouter" selected>OpenRouter (Claude/Gemini/Llama)</option>
+          <option value="groq">Groq</option>
+          <option value="ollama">Ollama Local (no key)</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div>
+        <label for="model">Model</label>
+        <input type="text" id="model" value="anthropic/claude-3.5-haiku" />
+      </div>
+      <div>
+        <label for="temp">Creativity (temperature): <span id="tempVal">0.8</span></label>
+        <input type="range" id="temp" min="0" max="1.3" step="0.1" value="0.8" style="width:100%" />
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:12px">
+      <div>
+        <label for="baseUrl">Base URL (ends in /v1)</label>
+        <input type="text" id="baseUrl" value="https://openrouter.ai/api/v1" />
+      </div>
+      <div>
+        <label for="apiKey">API Key (stored only in this browser if you tick save)</label>
+        <input type="password" id="apiKey" placeholder="sk-... or or-..." autocomplete="off" />
+      </div>
+    </div>
+    <div class="btnrow">
+      <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="saveKey" /> remember key locally</label>
+      <button class="ghost" id="testBtn">Test connection</button>
+    </div>
+    <div class="status" id="setupStatus"></div>
+    <p class="hint">Get a key: OpenRouter (easiest, works with Claude/GPT/Gemini + CORS enabled) → openrouter.ai/keys &nbsp;|&nbsp; OpenAI → platform.openai.com &nbsp;|&nbsp; Groq → console.groq.com (free). Direct Anthropic keys don't work from browsers due to CORS — use OpenRouter instead, or run the included proxy.</p>
+  </div>
+
+  <div class="card">
+    <h2>2 — Rewrite settings</h2>
+    <div class="grid3">
+      <div>
+        <label for="mode">Style</label>
+        <select id="mode">
+          <option value="balanced" selected>Balanced</option>
+          <option value="casual">Casual</option>
+          <option value="formal">Formal but natural</option>
+          <option value="concise">Concise</option>
+          <option value="creative">Creative / varied</option>
+        </select>
+      </div>
+      <div>
+        <label for="intensity">Humanize intensity: <span id="intensityVal">60%</span></label>
+        <input type="range" id="intensity" min="10" max="100" value="60" style="width:100%" />
+      </div>
+      <div>
+        <label for="length">Length</label>
+        <select id="length">
+          <option value="same" selected>Keep same length</option>
+          <option value="shorter">Slightly shorter</option>
+          <option value="longer">Slightly expand</option>
+        </select>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button class="primary" id="go">Humanize with AI →</button>
+      <button class="ghost" id="sample">Load sample</button>
+      <button class="ghost" id="clear">Clear</button>
+    </div>
+    <div class="status" id="runStatus"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h2>Input</h2><textarea id="input" placeholder="Paste AI text here..."></textarea></div>
+    <div class="card"><h2>Output</h2><div id="output">Rewrite will appear here.</div>
+      <div class="btnrow"><button id="copy">Copy</button><button class="ghost" id="regen">↻ Retry</button></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const PRESETS = {
+  openai:     { baseUrl:'https://api.openai.com/v1', model:'gpt-4o-mini' },
+  openrouter: { baseUrl:'https://openrouter.ai/api/v1', model:'anthropic/claude-3.5-haiku' },
+  groq:       { baseUrl:'https://api.groq.com/openai/v1', model:'llama-3.3-70b-versatile' },
+  ollama:     { baseUrl:'http://localhost:11434/v1', model:'llama3.1' },
+  custom:     { baseUrl:'', model:'' }
+};
+$('preset').onchange = e => {
+  const p = PRESETS[e.target.value];
+  if(e.target.value!=='custom'){ $('baseUrl').value=p.baseUrl; $('model').value=p.model; }
+};
+$('temp').oninput = e => $('tempVal').textContent = e.target.value;
+$('intensity').oninput = e => $('intensityVal').textContent = e.target.value+'%';
+
+// persist
+if(localStorage.getItem('hz_save')==='1'){ $('saveKey').checked=true; $('apiKey').value=localStorage.getItem('hz_key')||''; $('baseUrl').value=localStorage.getItem('hz_url')||$('baseUrl').value; $('model').value=localStorage.getItem('hz_model')||$('model').value; }
+$('saveKey').onchange = e => {
+  if(e.target.checked){ localStorage.setItem('hz_save','1'); localStorage.setItem('hz_key',$('apiKey').value); localStorage.setItem('hz_url',$('baseUrl').value); localStorage.setItem('hz_model',$('model').value); }
+  else { localStorage.removeItem('hz_save'); localStorage.removeItem('hz_key'); }
+};
+['apiKey','baseUrl','model'].forEach(id=>$(id).addEventListener('input',()=>{ if($('saveKey').checked){ localStorage.setItem('hz_key',$('apiKey').value); localStorage.setItem('hz_url',$('baseUrl').value); localStorage.setItem('hz_model',$('model').value); }}));
+
+function buildPrompts(text){
+  const mode=$('mode').value, inten=$('intensity').value, len=$('length').value;
+  const styleMap={
+    balanced:'natural, clear, lightly conversational but professional',
+    casual:'casual and friendly, contractions, plain words',
+    formal:'professional and polished, but still human — no stiff bureaucratese',
+    concise:'tight and to the point, cut filler, short sentences',
+    creative:'lively with varied rhythm and voice, some personality'
+  };
+  const system=`You are an expert human editor. Rewrite the user's text so it sounds like a real person wrote it, not an AI.
+Rules:
+- Preserve meaning, facts, names, numbers, quotes. Do not add new claims.
+- Remove AI clichés: delve, tapestry, leverage, seamless, robust, game-changer, cutting-edge, holistic, pivotal, embark, foster, moreover/furthermore (use sparingly).
+- Use contractions, mix short and medium sentences (burstiness), natural transitions.
+- Style: ${styleMap[mode]}. Intensity ${inten}% (higher = more restructuring).
+- Length: ${len}.
+- Output ONLY the rewrite, no preamble, no quotes, no explanation.`;
+  const user=`Rewrite this:\n\n${text}`;
+  return {system, user};
+}
+
+async function callLLM(system, user){
+  const base=$('baseUrl').value.trim().replace(/\/$/,''), model=$('model').value.trim(), key=$('apiKey').value.trim();
+  if(!base||!model) throw new Error('Set Base URL and Model.');
+  const isOllama = base.includes('localhost')||base.includes('127.0.0.1');
+  if(!key && !isOllama) throw new Error('Enter an API key.');
+  const res = await fetch(base+'/chat/completions',{
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', ...(key?{Authorization:'Bearer '+key}:{}), 'HTTP-Referer': location.href, 'X-Title':'Humanizer' },
+    body: JSON.stringify({ model, messages:[{role:'system',content:system},{role:'user',content:user}], temperature: parseFloat($('temp').value) })
+  });
+  if(!res.ok){
+    const t = await res.text().catch(()=> '');
+    throw new Error('API '+res.status+': '+t.slice(0,400));
+  }
+  const j = await res.json();
+  const out = j.choices?.[0]?.message?.content?.trim();
+  if(!out) throw new Error('Empty response: '+JSON.stringify(j).slice(0,300));
+  return out;
+}
+
+async function run(){
+  const text=$('input').value.trim();
+  if(!text){ $('runStatus').textContent='Paste some text first.'; $('runStatus').className='status err'; return; }
+  const {system,user}=buildPrompts(text);
+  $('go').disabled=true; $('runStatus').textContent='Rewriting…'; $('runStatus').className='status';
+  try{
+    const out=await callLLM(system,user);
+    $('output').textContent=out;
+    $('runStatus').textContent='Done ✓ — proofread names/numbers before using.';
+    $('runStatus').className='status ok';
+  }catch(e){
+    let msg=e.message;
+    if(msg.includes('Failed to fetch')) msg+=' — likely CORS or Ollama not running. For Ollama run `ollama serve`. For Anthropic-direct keys use OpenRouter instead.';
+    $('runStatus').textContent=msg; $('runStatus').className='status err';
+  }finally{ $('go').disabled=false; }
+}
+$('go').onclick=run; $('regen').onclick=run;
+$('testBtn').onclick=async()=>{
+  $('setupStatus').textContent='Testing…'; $('setupStatus').className='status';
+  try{ const r=await callLLM('Reply with exactly: ok','ping'); $('setupStatus').textContent='Connected ✓ (model replied: '+r.slice(0,60)+')'; $('setupStatus').className='status ok'; }
+  catch(e){ $('setupStatus').textContent=e.message; $('setupStatus').className='status err'; }
+};
+$('sample').onclick=()=>{ $('input').value="In today's fast-paced world, it is important to note that leveraging cutting-edge technology is pivotal for success. Moreover, organizations must utilize robust and seamless solutions to foster innovation. Furthermore, it is essential to delve into comprehensive strategies in order to elevate performance. In conclusion, this approach is a game-changer that showcases a holistic tapestry of efficient practices."; };
+$('clear').onclick=()=>{ $('input').value=''; $('output').textContent='Rewrite will appear here.'; };
+$('copy').onclick=async()=>{ try{ await navigator.clipboard.writeText($('output').textContent); $('copy').textContent='Copied!'; setTimeout(()=>$('copy').textContent='Copy',1200);}catch{} };
+document.addEventListener('keydown',e=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter') run(); });
+</script>
+</body>
+</html>
